@@ -772,10 +772,15 @@ document.addEventListener('keydown', e => {
 async function poll() {
   try {
     const r = await fetch('/state');
-    if (r.ok) render(await r.json());
-  } catch(_) {}
+    if (r.ok) {
+      const data = await r.json();
+      render(data);
+    }
+  } catch (e) {
+    console.log("Retrying...");
+  }
 }
-poll(); setInterval(poll, 500);
+poll(); setInterval(poll, 1000);
 </script>
 </body>
 </html>

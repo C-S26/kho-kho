@@ -11,8 +11,11 @@ app = Flask(__name__)
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 UPLOAD_FOLDER   = "static/logos"
-TEAMS_FILE      = "teams.json"
-HISTORY_FILE    = "match_history.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+TEAMS_FILE   = os.path.join(BASE_DIR, "teams.json")
+HISTORY_FILE = os.path.join(BASE_DIR, "match_history.json")
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "logos")
 ALLOWED_EXT     = {"png","jpg","jpeg","gif","webp"}
 MAX_LOGO_BYTES  = 5 * 1024 * 1024   # 5 MB
 
@@ -146,7 +149,10 @@ def control():
 # ── State ──────────────────────────────────────────────────────────────────
 @app.route("/state")
 def state():
-    t = _get_time()
+    try:
+        t = _get_time()
+    except:
+        t = game_state["paused_time"]
     return jsonify({
         "teams": [
             {"name": g["name"], "score": g["score"], "logo": _logo_url(g["name"])}
