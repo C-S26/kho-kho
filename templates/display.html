@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kho Kho Live Scoreboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Barlow+Condensed:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #ffffff;
+  font-family: 'Barlow Condensed', sans-serif;
+  color: #111;
+  user-select: none;
+}
+
+/* ── GRID LAYOUT ───────────────────────────── */
+.board {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 56px 1fr 48px;
+}
+
+/* ── TOPBAR ────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 2px solid #e8e8e8;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.brand-icon {
+  width: 36px; height: 36px;
+  background: #1a56db;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.brand-icon svg { width: 22px; height: 22px; }
+
+.brand-text { display: flex; flex-direction: column; line-height: 1; }
+.brand-name {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900; font-size: 14px; letter-spacing: 3px; color: #111;
+}
+.brand-sub {
+  font-size: 8px; letter-spacing: 3px; color: #999; margin-top: 2px;
+}
+
+.event-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #555;
+  text-align: center;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-right {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+.live-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 20px;
+  background: #fff0f3; border: 1px solid #f5a0ae;
+  font-family: 'Orbitron', monospace;
+  font-size: 9px; letter-spacing: 3px; color: #d32f2f; font-weight: 700;
+}
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #d32f2f;
+  animation: blink 1.2s ease-in-out infinite;
+}
+.live-dot.paused { background: #bbb; animation: none; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+
+.turn-pill {
+  padding: 4px 12px; border-radius: 20px;
+  background: #fffbe6; border: 1px solid #f0c050;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: 2px; color: #856400;
+  white-space: nowrap;
+}
+
+.clock {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; letter-spacing: 1px; color: #bbb;
+}
+
+/* ── MAIN AREA ─────────────────────────────── */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 320px 1fr;
+  overflow: hidden;
+}
+
+/* ── TEAM PANELS ───────────────────────────── */
+.team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 28px;
+  background: #fff;
+  position: relative;
+  border-right: 1px solid #ebebeb;
+  overflow: hidden;
+  transition: background 0.5s;
+}
+.team-b { border-right: none; border-left: 1px solid #ebebeb; }
+
+/* color wash when chasing */
+.team-a.chasing { background: #fff6f7; }
+.team-b.chasing { background: #f5f8ff; }
+
+/* side accent bar */
+.team::after {
+  content: '';
+  position: absolute; top: 0; bottom: 0;
+  width: 4px; opacity: 0;
+  transition: opacity 0.4s;
+}
+.team-a::after { right: 0; background: #d32f2f; }
+.team-b::after { left: 0; background: #1a56db; }
+.team.chasing::after { opacity: 1; }
+
+.chasing-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 4px; color: #856400;
+  padding: 3px 14px; border-radius: 20px;
+  background: #fffbe6; border: 1px solid #f0c050;
+  /* FIX: use visibility+opacity so layout doesn't shift */
+  visibility: hidden; opacity: 0;
+  transition: opacity 0.3s;
+  flex-shrink: 0;
+}
+.team.chasing .chasing-badge { visibility: visible; opacity: 1; }
+
+/* ── LOGO WRAP ──────────────────────────────── */
+/* FIX: logo-wrap is position:relative; img and mono both sit inside,
+   mono is shown by default; img overlays it when available */
+.logo-wrap {
+  width: 110px; height: 110px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  border: 3px solid #e0e0e0;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.4s;
+  position: relative;
+}
+.team-a.chasing .logo-wrap { border-color: #f5a0a0; }
+.team-b.chasing .logo-wrap { border-color: #a0b8f5; }
+
+/* FIX: pre-baked img element — always present, hidden until src assigned */
+.logo-wrap .logo-img {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.3s;
+  border-radius: 50%;
+}
+.logo-wrap .logo-img.loaded { opacity: 1; }
+
+.logo-mono {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900; font-size: 38px; opacity: 0.18;
+  transition: opacity 0.3s;
+  position: relative; z-index: 0;
+}
+.team-a .logo-mono { color: #d32f2f; }
+.team-b .logo-mono { color: #1a56db; }
+/* FIX: hide mono text when image is loaded */
+.logo-wrap .logo-img.loaded ~ .logo-mono { opacity: 0; }
+
+.team-name {
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  font-size: clamp(18px, 2.4vw, 34px);
+  letter-spacing: 2px;
+  text-align: center;
+  word-break: break-word;
+  line-height: 1.15;
+}
+.team-a .team-name { color: #d32f2f; }
+.team-b .team-name { color: #1a56db; }
+
+/* SCORE */
+.score {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  font-size: clamp(50px, 6vw, 76px);
+  line-height: 1;
+  letter-spacing: -1px;
+  /* FIX: will-change avoids initial-render pop jitter */
+  will-change: transform;
+  transition: transform 0.15s cubic-bezier(.2,2,.3,1);
+}
+.team-a .score { color: #d32f2f; }
+.team-b .score { color: #1a56db; }
+.score.pop { transform: scale(1.14); }
+
+.lead-tag {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 3px;
+  padding: 3px 12px; border-radius: 20px;
+  background: #fffbe6; border: 1px solid #f0c050; color: #856400;
+  /* FIX: visibility keeps layout stable */
+  visibility: hidden; opacity: 0;
+  transition: opacity 0.3s;
+}
+.lead-tag.show { visibility: visible; opacity: 1; }
+
+/* ── CENTER COLUMN ─────────────────────────── */
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fafafa;
+  padding: 16px 0;
+}
+
+/* ── TIMER ────────────────────────────── */
+.timer-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.timer-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+/* FIX: reduced from 64px → 50px so "07:00" never overflows ring interior.
+   Ring inner safe diameter = 2*(78-6)units × (250/200) = 155px. 50px × 5chars × 0.6em = ~150px ✓ */
+.timer-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-weight: 700;
+  font-size: 50px;
+  letter-spacing: -1px;
+  color: #222;
+  line-height: 1;
+}
+.timer-val.urgent { color: #d32f2f; }
+
+/* FIX: VS label moved below timer, now tiny and non-overlapping */
+.vs-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 8px; font-weight: 700; letter-spacing: 5px;
+  color: #ccc;
+}
+
+/* center logo + name */
+.center-logo {
+  width: 36px; height: 36px;
+  background: #1a56db; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.center-logo svg { width: 22px; height: 22px; }
+
+.center-kk {
+  font-family: 'Orbitron', monospace;
+  font-size: 8px; font-weight: 700; letter-spacing: 4px; color: #bbb;
+}
+
+.phase-chip {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 4px;
+  padding: 5px 16px; border-radius: 20px;
+  border: 1px solid #e0e0e0; background: #f5f5f5; color: #999;
+  transition: all 0.3s;
+}
+.phase-chip.inplay  { background: #f0faf3; border-color: #81c784; color: #2e7d32; }
+.phase-chip.onbreak { background: #fff8f0; border-color: #ffb74d; color: #e65100; }
+.phase-chip.gameover{ background: #fffbe6; border-color: #f0c050; color: #856400; }
+
+.turn-dots {
+  display: flex; gap: 5px; flex-wrap: wrap;
+  justify-content: center; max-width: 200px;
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #e0e0e0; border: 1px solid #ccc;
+  transition: background 0.3s;
+}
+.dot.done    { background: #2e7d32; border-color: #2e7d32; }
+.dot.current { background: #856400; border-color: #f0c050; animation: dpulse 0.9s ease infinite alternate; }
+@keyframes dpulse { to { transform: scale(1.6); } }
+
+/* ── BOTTOM BAR ────────────────────────────── */
+.bottombar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #fff;
+  border-top: 1px solid #e8e8e8;
+}
+
+.stats { display: flex; gap: 32px; }
+.stat  { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.stat-val {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px; font-weight: 700; color: #333;
+}
+.stat-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px; letter-spacing: 3px; color: #bbb;
+}
+
+.bb-brand {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px; letter-spacing: 3px; color: #ddd;
+}
+
+/* ── BREAK OVERLAY ─────────────────────────── */
+.break-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(6px);
+  align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.break-overlay.show { display: flex; }
+.break-box {
+  text-align: center;
+  padding: 40px 80px;
+  background: #fff;
+  border: 2px solid #ffb74d;
+  border-radius: 12px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.06);
+}
+.break-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 42px; font-weight: 900;
+  letter-spacing: 6px; color: #e65100;
+}
+.break-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; letter-spacing: 4px; color: #ffb74d;
+  margin-top: 8px;
+}
+/* FIX: separate large break timer in overlay */
+.break-timer {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 52px; font-weight: 700; color: #e65100;
+  margin-top: 16px; letter-spacing: -1px;
+}
+
+/* ── WINNER OVERLAY ────────────────────────── */
+.winner-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(12px);
+  flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+}
+.winner-overlay.show { display: flex; animation: fadein 0.6s ease; }
+@keyframes fadein { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:scale(1)} }
+
+.wo-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: 6px; color: #ccc;
+}
+.wo-trophy { font-size: 80px; animation: tbounce 1.2s ease infinite alternate; }
+@keyframes tbounce { to { transform: translateY(-14px); } }
+.wo-name {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900; font-size: clamp(44px, 8vw, 88px);
+  letter-spacing: 4px; color: #856400; text-align: center;
+}
+.wo-score {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px; letter-spacing: 5px; color: #bbb; font-weight: 400;
+}
+.wo-hint {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 3px; color: #ddd; margin-top: 12px;
+}
+
+/* ── CONFETTI ──────────────────────────────── */
+.confetti-layer { position: fixed; inset: 0; pointer-events: none; z-index: 190; overflow: hidden; }
+.cp { position: absolute; top: -16px; animation: fall linear forwards; }
+@keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+</style>
+</head>
+<body>
+
+<div class="confetti-layer" id="confetti"></div>
+
+<div class="board">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="11" width="20" height="2" rx="1" fill="rgba(255,255,255,0.4)"/>
+          <rect x="11" y="2" width="2" height="20" rx="1" fill="rgba(255,255,255,0.4)"/>
+          <circle cx="7.5" cy="6.5" r="2" fill="white"/>
+          <path d="M7.5 9 Q6 11 6.5 14 L8.5 14 Q8 11.5 9.5 10Z" fill="white"/>
+          <line x1="6.5" y1="14" x2="5.5" y2="18" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="8.5" y1="14" x2="9.5" y2="17.5" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="7.5" y1="10.5" x2="5" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="9.5" y1="10" x2="12.5" y2="9" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <circle cx="17" cy="7" r="1.7" fill="rgba(255,255,255,0.65)"/>
+          <path d="M17 9.5 Q15.8 11.5 16.2 14 L17.8 14 Q17.3 12 18.8 10.5Z" fill="rgba(255,255,255,0.65)"/>
+          <line x1="16.2" y1="14" x2="15.2" y2="18" stroke="rgba(255,255,255,0.65)" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="17.8" y1="14" x2="18.5" y2="17.5" stroke="rgba(255,255,255,0.65)" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">KHO KHO</span>
+        <span class="brand-sub">LIVE SCOREBOARD</span>
+      </div>
+    </div>
+
+    <div class="event-title" id="event_title">KHO KHO CHAMPIONSHIP</div>
+
+    <div class="topbar-right">
+      <div class="live-pill">
+        <div class="live-dot" id="live_dot"></div>
+        <span id="live_txt">LIVE</span>
+      </div>
+      <div class="turn-pill" id="turn_pill">TURN 1 / 8</div>
+      <div class="clock" id="clock"></div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TEAM A -->
+    <div class="team team-a" id="panel_a">
+      <div class="chasing-badge">▶ CHASING</div>
+      <!-- FIX: logo-img pre-baked in HTML; mono stays as sibling, hidden via CSS when img loads -->
+      <div class="logo-wrap" id="logo_a">
+        <img class="logo-img" id="img_a" alt="Team A logo" src="">
+        <div class="logo-mono" id="mono_a">A</div>
+      </div>
+      <div class="team-name" id="name_a">TEAM A</div>
+      <div class="score" id="score_a">00</div>
+      <div class="lead-tag" id="lead_a">LEADING</div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="center">
+      <div class="center-logo">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="11" width="20" height="2" rx="1" fill="rgba(255,255,255,0.4)"/>
+          <rect x="11" y="2" width="2" height="20" rx="1" fill="rgba(255,255,255,0.4)"/>
+          <circle cx="7.5" cy="6.5" r="2" fill="white"/>
+          <path d="M7.5 9 Q6 11 6.5 14 L8.5 14 Q8 11.5 9.5 10Z" fill="white"/>
+          <line x1="6.5" y1="14" x2="5.5" y2="18" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="8.5" y1="14" x2="9.5" y2="17.5" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="7.5" y1="10.5" x2="5" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="9.5" y1="10" x2="12.5" y2="9" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="center-kk">KHO KHO</div>
+
+      <!-- TIMER -->
+      <div class="timer-wrap" id="timer_wrap">
+        <div class="timer-inner">
+          <div class="timer-val" id="timer_val">07:00</div>
+          <div class="vs-label">VS</div>
+        </div>
+      </div>
+
+      <div class="phase-chip" id="phase_chip">WAITING</div>
+      <div class="turn-dots" id="turn_dots"></div>
+    </div>
+
+    <!-- TEAM B -->
+    <div class="team team-b" id="panel_b">
+      <div class="chasing-badge">▶ CHASING</div>
+      <div class="logo-wrap" id="logo_b">
+        <img class="logo-img" id="img_b" alt="Team B logo" src="">
+        <div class="logo-mono" id="mono_b">B</div>
+      </div>
+      <div class="team-name" id="name_b">TEAM B</div>
+      <div class="score" id="score_b">00</div>
+      <div class="lead-tag" id="lead_b">LEADING</div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <footer class="bottombar">
+    <div class="stats">
+      <div class="stat"><span class="stat-val" id="bb_phase">TURN</span><span class="stat-label">PHASE</span></div>
+      <div class="stat"><span class="stat-val" id="bb_turn">1/8</span><span class="stat-label">TURN</span></div>
+      <div class="stat"><span class="stat-val" id="bb_status">WAITING</span><span class="stat-label">STATUS</span></div>
+      <div class="stat"><span class="stat-val" id="bb_venue">—</span><span class="stat-label">VENUE</span></div>
+    </div>
+    <div class="bb-brand">KHO KHO LIVE · REAL-TIME SCOREBOARD</div>
+  </footer>
+
+</div>
+
+<!-- BREAK OVERLAY -->
+<div class="break-overlay" id="break_overlay">
+  <div class="break-box">
+    <div class="break-title">BREAK TIME</div>
+    <!-- FIX: separate large timer element in overlay so it's always clearly visible -->
+    <div class="break-timer" id="break_timer">03:00</div>
+    <div class="break-sub">REMAINING</div>
+  </div>
+</div>
+
+<!-- WINNER OVERLAY -->
+<div class="winner-overlay" id="winner_overlay">
+  <div class="wo-label">MATCH RESULT</div>
+  <div class="wo-trophy">🏆</div>
+  <div class="wo-name" id="wo_name">—</div>
+  <div class="wo-score" id="wo_score"></div>
+  <div class="wo-hint">TAP OR PRESS ANY KEY TO DISMISS</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// FIX: corrected circumference — 2 × π × 78 = 490.09
+const CIRC = 2 * Math.PI * 78; // ≈ 490
+
+function fmt(s) {
+  const m = Math.floor(s / 60), ss = s % 60;
+  return String(m).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+}
+
+// FIX: only update DOM text when value actually changed (prevents spurious reflows)
+function set(id, v) {
+  const el = $(id);
+  if (el && el.textContent !== String(v)) el.textContent = v;
+}
+
+let state = {};
+let localSec = 0, running = false, tick = null;
+let winnerShown = false;
+
+// FIX: track previous score values to avoid pop on initial render
+const prevScore = [null, null];
+
+function startTick(val) {
+  localSec = val; running = true;
+  clearInterval(tick);
+  tick = setInterval(() => {
+    localSec = Math.max(0, localSec - 1);
+    paintTimer(localSec);
+  }, 1000);
+}
+function stopTick(val) {
+  running = false; clearInterval(tick); tick = null;
+  localSec = val; paintTimer(val);
+}
+
+function paintTimer(s) {
+  const urgent = s <= 60 && running;
+  $('timer_val').textContent = fmt(s);
+  $('timer_val').classList.toggle('urgent', urgent);
+
+  // FIX: break overlay timer updates here reliably
+  if (state.phase === 'break') {
+    $('break_timer').textContent = fmt(s);
+  }
+}
+
+function render(d) {
+  state = d;
+
+  // names
+  const nA = (d.teams?.[0]?.name || 'TEAM A').toUpperCase();
+  const nB = (d.teams?.[1]?.name || 'TEAM B').toUpperCase();
+  set('name_a', nA); set('mono_a', nA.slice(0,2));
+  set('name_b', nB); set('mono_b', nB.slice(0,2));
+
+  // FIX: only trigger pop animation when score genuinely changes (not on first render)
+  [['score_a', 0], ['score_b', 1]].forEach(([id, i]) => {
+    const el = $(id);
+    const v = String(d.teams?.[i]?.score ?? 0).padStart(2,'0');
+    if (el.textContent !== v) {
+      el.textContent = v;
+      // Only pop if we've seen a previous value (not initial load)
+      if (prevScore[i] !== null && prevScore[i] !== v) {
+        el.classList.add('pop');
+        setTimeout(() => el.classList.remove('pop'), 200);
+      }
+      prevScore[i] = v;
+    }
+  });
+
+  // leading
+  const s0 = d.teams?.[0]?.score ?? 0;
+  const s1 = d.teams?.[1]?.score ?? 0;
+  $('lead_a').classList.toggle('show', s0 > s1);
+  $('lead_b').classList.toggle('show', s1 > s0);
+
+  // chasing panels
+  const act = d.running ? d.active_team : -1;
+  $('panel_a').classList.toggle('chasing', act === 0);
+  $('panel_b').classList.toggle('chasing', act === 1);
+
+  // FIX: logo display using pre-baked img elements.
+  // Use img.complete + naturalWidth to detect load success.
+  ['a','b'].forEach((s, i) => {
+    const img  = $('img_' + s);
+    const mono = $('mono_' + s);
+    const url  = d.teams?.[i]?.logo;
+
+    if (url) {
+      // Only update src if different (avoid reload flicker)
+      if (img.getAttribute('src') !== url) {
+        img.classList.remove('loaded');
+        img.src = url;
+        img.onerror = () => {
+          img.classList.remove('loaded');
+          mono.style.opacity = '';
+        };
+        img.onload = () => {
+          img.classList.add('loaded');
+        };
+        // If already cached, onload may not fire; check immediately
+        if (img.complete && img.naturalWidth > 0) {
+          img.classList.add('loaded');
+        }
+      }
+    } else {
+      img.src = '';
+      img.classList.remove('loaded');
+      mono.style.opacity = '';
+    }
+  });
+
+  // timer sync
+  if (d.running && !running) startTick(d.timer);
+  else if (!d.running && running) stopTick(d.timer);
+  else if (d.running && Math.abs(localSec - d.timer) > 2) localSec = d.timer;
+  if (!d.running) paintTimer(d.timer);
+
+  // phase chip
+  const chip = $('phase_chip');
+  chip.className = 'phase-chip';
+  if (d.match_over) {
+    chip.classList.add('gameover'); chip.textContent = 'MATCH OVER';
+  } else if (d.running && d.phase === 'break') {
+    chip.classList.add('onbreak'); chip.textContent = 'BREAK TIME';
+  } else if (d.running) {
+    chip.classList.add('inplay'); chip.textContent = 'IN PLAY';
+  } else {
+    chip.textContent = d.match_started ? 'PAUSED' : 'WAITING';
+  }
+
+  // break overlay — always update break timer text here too
+  const isBreak = !!(d.running && d.phase === 'break');
+  $('break_overlay').classList.toggle('show', isBreak);
+  if (isBreak) {
+    $('break_timer').textContent = fmt(d.timer);
+  }
+
+  // live pill
+  $('live_dot').classList.toggle('paused', !d.running);
+  set('live_txt', d.running ? 'LIVE' : (d.match_over ? 'ENDED' : 'PAUSED'));
+
+  // topbar
+  set('event_title', d.event_name || 'KHO KHO CHAMPIONSHIP');
+  set('turn_pill', 'TURN ' + d.turn_number + ' / ' + d.total_turns);
+
+  // bottombar
+  set('bb_phase',  d.phase === 'break' ? 'BREAK' : 'TURN');
+  set('bb_turn',   d.turn_number + '/' + d.total_turns);
+  set('bb_status', d.running ? 'LIVE' : (d.match_over ? 'FINISHED' : (d.match_started ? 'PAUSED' : 'WAITING')));
+  set('bb_venue',  d.venue || '—');
+
+  // dots
+  buildDots(d.turn_number, d.total_turns);
+
+  // winner
+  if (d.match_over && d.winner && !winnerShown) {
+    winnerShown = true; stopTick(0);
+    $('wo_name').textContent = d.winner === 'DRAW' ? "IT'S A DRAW!" : d.winner;
+    $('wo_score').textContent =
+      (d.teams[0].name||'Team A') + '  ' + s0 + '  —  ' + s1 + '  ' + (d.teams[1].name||'Team B');
+    $('winner_overlay').classList.add('show');
+    confetti();
+  } else if (!d.match_over) {
+    winnerShown = false;
+    $('winner_overlay').classList.remove('show');
+  }
+}
+
+function buildDots(cur, total) {
+  const w = $('turn_dots');
+  if (w._cur === cur && w._total === total) return;
+  w._cur = cur; w._total = total;
+  w.innerHTML = '';
+  for (let i = 1; i <= total; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < cur ? ' done' : i === cur ? ' current' : '');
+    w.appendChild(d);
+  }
+}
+
+function confetti() {
+  const layer = $('confetti');
+  const cols = ['#856400','#d32f2f','#1a56db','#2e7d32','#e65100','#555'];
+  for (let i = 0; i < 120; i++) {
+    const p = document.createElement('div');
+    p.className = 'cp';
+    const sz = (5 + Math.random() * 9) + 'px';
+    p.style.cssText = `
+      left:${Math.random()*100}vw;
+      width:${sz};height:${sz};
+      background:${cols[Math.floor(Math.random()*cols.length)]};
+      border-radius:${Math.random()>.5?'50%':'2px'};
+      animation-duration:${2+Math.random()*3}s;
+      animation-delay:${Math.random()*2}s;
+      opacity:0.9;
+    `;
+    layer.appendChild(p);
+  }
+  setTimeout(() => layer.innerHTML = '', 7000);
+}
+
+// clock
+function tickClock() {
+  set('clock', new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'}));
+}
+tickClock(); setInterval(tickClock, 30000);
+
+// dismiss winner
+function dismiss() { $('winner_overlay').classList.remove('show'); }
+$('winner_overlay').addEventListener('click', dismiss);
+document.addEventListener('keydown', e => {
+  if ($('winner_overlay').classList.contains('show')) dismiss();
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+    e.preventDefault(); window.open('/control','_blank');
+  }
+});
+
+// fetch loop
+async function poll() {
+  try {
+    const r = await fetch('/state');
+    if (r.ok) render(await r.json());
+  } catch(_) {}
+}
+poll(); setInterval(poll, 500);
+</script>
+</body>
+</html>
